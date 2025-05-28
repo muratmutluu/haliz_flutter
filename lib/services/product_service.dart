@@ -41,8 +41,9 @@ class ProductService {
 
   Future<Map<String, List<Product>>> fetchProductsWithComparison(
     String date,
-    CategoryType category,
-  ) async {
+    CategoryType category, {
+    String? comparisonDate,
+  }) async {
     try {
       // Bugünün verilerini çek
       final currentDate = date;
@@ -61,25 +62,30 @@ class ProductService {
         throw Exception('Veri bulunamadı');
       }
 
-      final currentProducts = currentProductsJson.map((json) => Product.fromJson(json)).toList();
+      final currentProducts =
+          currentProductsJson.map((json) => Product.fromJson(json)).toList();
 
-      // Önceki günün verilerini çek
-      final previousDate = DateUtilsHelper.getPreviousDate(DateTime.parse(date));
+      // Karşılaştırma verilerini çek
+      List<Product> previousProducts = [];
+
+      // Eğer karşılaştırma tarihi belirtilmişse onu kullan, yoksa önceki günü kullan
+      final compareDate =
+          comparisonDate ??
+          DateUtilsHelper.getPreviousDate(DateTime.parse(date));
+
       final previousResponse = await http.get(
-        Uri.parse("$_baseUrl/${category.apiPath}/$previousDate"),
+        Uri.parse("$_baseUrl/${category.apiPath}/$compareDate"),
       );
 
-      List<Product> previousProducts = [];
       if (previousResponse.statusCode == 200) {
         final previousData = json.decode(previousResponse.body);
-        final List<dynamic> previousProductsJson = previousData['HalFiyatListesi'] ?? [];
-        previousProducts = previousProductsJson.map((json) => Product.fromJson(json)).toList();
+        final List<dynamic> previousProductsJson =
+            previousData['HalFiyatListesi'] ?? [];
+        previousProducts =
+            previousProductsJson.map((json) => Product.fromJson(json)).toList();
       }
 
-      return {
-        'current': currentProducts,
-        'previous': previousProducts,
-      };
+      return {'current': currentProducts, 'previous': previousProducts};
     } catch (e) {
       if (e is SocketException) {
         throw Exception('İnternet bağlantısı yok');
